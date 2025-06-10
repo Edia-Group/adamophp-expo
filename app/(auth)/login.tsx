@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 
@@ -7,6 +6,8 @@ import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -43,8 +44,35 @@ export default function LoginScreen() {
     }
   };
 
-  const navigateToPublicAreas = () => {
-    router.replace('/');
+  // entra senza login
+  const navigateToPublicAreas = async () => {
+    
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+    
+    try {
+      const response = await fetch(backendUrl + `api/auth/login-anon`);
+
+      if(response.ok) {
+        const anonJWT = await response.json();
+        console.log("anonJwt",anonJWT);
+        
+        if(Platform.OS === 'web') {
+          localStorage.setItem("anonJWT", JSON.stringify(anonJWT));
+        } else {
+          try {
+            await AsyncStorage.setItem("anonJWT", JSON.stringify(anonJWT))
+          } catch(error) {
+            console.error("Errore salvataggio locale", )
+          }
+        }
+
+        router.replace('/');
+      } else {
+        console.error("Error response body", await response.text);
+      }
+    } catch(error) {
+      console.error("Network error");
+    }
   };
 
   return (
