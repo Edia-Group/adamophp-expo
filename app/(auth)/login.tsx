@@ -50,7 +50,7 @@ export default function LoginScreen() {
     const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
     
     try {
-      const response = await fetch(backendUrl + `api/auth/login-anon`);
+      const response = await fetch(backendUrl + `/api/auth/login-anon`);
 
       if(response.ok) {
         const anonJWT = await response.json();
