@@ -2,7 +2,7 @@ import * as FileSystem from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 import * as Sharing from 'expo-sharing';
 
-const API_URL = 'https://api.carl.com';
+const API_URL = 'http://' + process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export const getToken = async (): Promise<string | null> => {
   try {

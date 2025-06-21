@@ -89,7 +89,7 @@ export default function ProfileScreen() {
         <ThemedView style={styles.profileHeader}>
           <ThemedView style={[styles.avatar, { backgroundColor: Colors[colorScheme].tint }]}>
             <ThemedText style={styles.avatarText}>
-              {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+              {user?.name?.charAt(0) || user?.cfisc?.charAt(0) || 'U'}
             </ThemedText>
           </ThemedView>
           
@@ -98,7 +98,7 @@ export default function ProfileScreen() {
           </ThemedText>
           
           <ThemedText style={styles.userEmail}>
-            {user?.email}
+            {user?.cfisc}
           </ThemedText>
         </ThemedView>
 

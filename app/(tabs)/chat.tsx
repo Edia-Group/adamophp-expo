@@ -16,7 +16,6 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { sendChatMessage } from '@/utils/api';
 
 interface Message {
   id: string;
@@ -25,24 +24,95 @@ interface Message {
   timestamp: Date;
 }
 
+const WS_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
 export default function ChatScreen() {
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: 'Ciao mi chiamo Adamo Bonazzi. Tempo fa sono stato espulso dal sindacato, ma ti chiedo di non credere a tutto ciò che leggi su internet.',
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [chatId, setChatId] = useState<string | null>(null);
+
   const scrollViewRef = useRef<ScrollView>(null);
+  const socketRef = useRef<WebSocket | null>(null);
   const colorScheme = useColorScheme() ?? 'light';
   const { isAuthenticated, user } = useAuth();
 
-  // Funzione per inviare un messaggio
-  const handleSendMessage = async () => {
-    if (!message.trim()) return;
+  useEffect(() => {
+    // The websocket connects when the component mounts and disconnects when it unmounts.
+
+    const userId = user?.id || `anon_${Date.now()}`;
+    const userName = user?.name || 'Anonymous User';
+
+    const wsUrl = `ws://${WS_BACKEND_URL}/ws/user/${encodeURIComponent(userId)}?user_name=${encodeURIComponent(userName)}`;
+
+    const socket = new WebSocket(wsUrl);
+    socketRef.current = socket;
+    setIsLoading(true);
+
+    socket.onopen = () => {
+      console.log('WebSocket connected');
+      setIsConnected(true);
+      setIsLoading(false);
+    };
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === 'connection') { // This arrives as a confirmation of succesful first connection
+        setChatId(data.chat_id);
+        const systemMessage: Message = {
+          id: Date.now().toString(),
+          text: 'Connected to chat. An admin will be with you shortly.',
+          isUser: false,
+          timestamp: new Date(data.timestamp),
+        };
+        setMessages((prevMessages) => [...prevMessages, systemMessage]);
+
+      } else if (data.type === 'message') {
+        if (data.sender_type === 'admin') {
+          const assistantMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            text: data.message,
+            isUser: false,
+            timestamp: new Date(data.timestamp),
+          };
+          setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+        }
+      }
+    };
+
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setIsLoading(false);
+      setIsConnected(false);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Could not connect to the chat service. Please try again later.',
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages((prevMessages) => [...prevMessages, errorMessage]);
+    };
+
+    socket.onclose = () => {
+      console.log('WebSocket disconnected');
+      setIsConnected(false);
+      setIsLoading(false);
+      socketRef.current = null;
+    };
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+    };
+  }, [user]);
+
+  const handleSendMessage = () => {
+    if (!message.trim() || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -51,38 +121,14 @@ export default function ChatScreen() {
       timestamp: new Date(),
     };
 
+    // Add user's message to the UI immediately for a responsive feel.
     setMessages((prevMessages) => [...prevMessages, userMessage]);
+
+    socketRef.current.send(JSON.stringify({ message: message }));
+    console.log("Sent message: " + message.toString() + " to server: " + WS_BACKEND_URL)
+
+
     setMessage('');
-    setIsLoading(true);
-
-    try {
-      // fake loading
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const response = await sendChatMessage(message);
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: response.message || 'Grazie per il tuo messaggio. Ti risponderemo al più presto.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      setMessages((prevMessages) => [...prevMessages, assistantMessage]);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Si è verificato un errore nell\'invio del messaggio. Riprova più tardi.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      setMessages((prevMessages) => [...prevMessages, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   useEffect(() => {
@@ -96,114 +142,93 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-      <ThemedView style={styles.container}>
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={styles.messagesContent}
-        >
-          <ThemedText style={styles.welcomeMessage}>
-            {isAuthenticated
-              ? `Benvenuto, ${user?.name || user?.email}! Come possiamo aiutarti?`
-              : 'Benvenuto nella chat di assistenza. Come possiamo aiutarti?'}
-          </ThemedText>
-
-          {messages.map((msg) => (
-            <ThemedView
-              key={msg.id}
-              style={[
-                styles.messageBubble,
-                msg.isUser
-                  ? [styles.userMessage, { backgroundColor: Colors[colorScheme].tint }]
-                  : [styles.assistantMessage, {
-                      backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0',
-                    }],
-              ]}
-            >
-              <ThemedText
-                style={[
-                  styles.messageText,
-                  msg.isUser ? styles.userMessageText : {},
-                ]}
-              >
-                {msg.text}
-              </ThemedText>
-              <ThemedText
-                style={[
-                  styles.messageTime,
-                  msg.isUser ? styles.userMessageTime : {},
-                ]}
-              >
-                {formatTime(msg.timestamp)}
-              </ThemedText>
-            </ThemedView>
-          ))}
-
-          {isLoading && (
-            <ThemedView
-              style={[
-                styles.messageBubble,
-                styles.assistantMessage,
-                {
-                  backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0',
-                  flexDirection: 'row',
-                  padding: 12,
-                },
-              ]}
-            >
-              <ActivityIndicator
-                size="small"
-                color={Colors[colorScheme].tint}
-                style={{ marginRight: 8 }}
-              />
-              <ThemedText style={styles.loadingText}>Digitando...</ThemedText>
-            </ThemedView>
-          )}
-        </ScrollView>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5',
-                color: colorScheme === 'dark' ? '#fff' : '#000',
-                borderColor: colorScheme === 'dark' ? '#555' : '#ddd',
-              },
-            ]}
-            placeholder="Scrivi un messaggio..."
-            placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#888'}
-            value={message}
-            onChangeText={setMessage}
-            multiline
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              { backgroundColor: Colors[colorScheme].tint },
-              !message.trim() ? styles.disabledButton : {},
-            ]}
-            onPress={handleSendMessage}
-            disabled={!message.trim() || isLoading}
+      <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ThemedView style={styles.container}>
+          <ScrollView
+              ref={scrollViewRef}
+              style={styles.messagesContainer}
+              contentContainerStyle={styles.messagesContent}
           >
-            <IconSymbol
-              name="paperplane.fill"
-              size={24}
-              color="#fff"
+            {messages.length === 0 && isLoading && (
+                <ActivityIndicator size="large" color={Colors[colorScheme].tint} style={{ marginTop: 50 }} />
+            )}
+
+            {messages.map((msg) => (
+                <ThemedView
+                    key={msg.id}
+                    style={[
+                      styles.messageBubble,
+                      msg.isUser
+                          ? [styles.userMessage, { backgroundColor: Colors[colorScheme].tint }]
+                          : [styles.assistantMessage, {
+                            backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0',
+                          }],
+                    ]}
+                >
+                  <ThemedText
+                      style={[
+                        styles.messageText,
+                        msg.isUser ? styles.userMessageText : {},
+                      ]}
+                  >
+                    {msg.text}
+                  </ThemedText>
+                  <ThemedText
+                      style={[
+                        styles.messageTime,
+                        msg.isUser ? styles.userMessageTime : {},
+                      ]}
+                  >
+                    {formatTime(msg.timestamp)}
+                  </ThemedText>
+                </ThemedView>
+            ))}
+          </ScrollView>
+
+          <View style={styles.inputContainer}>
+            <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5',
+                    color: colorScheme === 'dark' ? '#fff' : '#000',
+                    borderColor: colorScheme === 'dark' ? '#555' : '#ddd',
+                  },
+                ]}
+                placeholder="Scrivi un messaggio..."
+                placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#888'}
+                value={message}
+                onChangeText={setMessage}
+                multiline
+                editable={isConnected} // Disable input if not connected
             />
-          </TouchableOpacity>
-        </View>
-      </ThemedView>
-    </KeyboardAvoidingView>
+            <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  { backgroundColor: Colors[colorScheme].tint },
+                  (!message.trim() || !isConnected) ? styles.disabledButton : {},
+                ]}
+                onPress={handleSendMessage}
+                disabled={!message.trim() || !isConnected}
+            >
+              <IconSymbol
+                  name="paperplane.fill"
+                  size={24}
+                  color="#fff"
+              />
+            </TouchableOpacity>
+          </View>
+        </ThemedView>
+      </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  // ... your existing styles remain unchanged
   container: {
     flex: 1,
   },

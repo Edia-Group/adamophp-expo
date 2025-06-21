@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 interface User {
   id: string;
-  email: string;
+  cfisc: string;
   name?: string;
 }
 
@@ -12,71 +13,121 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
   isAuthenticated: boolean;
+  isAnonymous: boolean;
+  login: (cfisc: string, password: string) => Promise<boolean>;
+  loginAnon: () => Promise<boolean>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_URL = 'https://api.carl.com';
+const backendHost = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = `http://${backendHost}`;
+
+const AUTH_TOKEN_KEY = 'auth_token';
+const ANON_TOKEN_KEY = 'anon_auth_token';
+
+const storage = {
+  async setItem(key: string, value: string) {
+    if (Platform.OS === 'web') {
+      try {
+        localStorage.setItem(key, value);
+      } catch (e) {
+        console.error('Failed to save to localStorage', e);
+      }
+    } else {
+      await SecureStore.setItemAsync(key, value);
+    }
+  },
+  async getItem(key: string) {
+    if (Platform.OS === 'web') {
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {
+        console.error('Failed to get from localStorage', e);
+        return null;
+      }
+    } else {
+      return await SecureStore.getItemAsync(key);
+    }
+  },
+  async deleteItem(key: string) {
+    if (Platform.OS === 'web') {
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        console.error('Failed to remove from localStorage', e);
+      }
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  },
+};
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // On startup, if the token is already present we load it
   useEffect(() => {
-    const loadToken = async () => {
+    const loadStateFromStorage = async () => {
       try {
-        const savedToken = await SecureStore.getItemAsync('auth_token');
-        if (savedToken) {
-          setToken(savedToken);
-          const userData = await fetchUserData(savedToken);
+        // We now use our cross-platform storage helper
+        const savedAuthToken = await storage.getItem(AUTH_TOKEN_KEY);
+        if (savedAuthToken) {
+          const userData = await fetchUserData(savedAuthToken);
+          setToken(savedAuthToken);
           setUser(userData);
-        } else {
-            // handle anonymous user
+          setIsAnonymous(false);
+          return;
+        }
+
+        const savedAnonToken = await storage.getItem(ANON_TOKEN_KEY);
+        if (savedAnonToken) {
+          setToken(savedAnonToken);
+          setUser(null);
+          setIsAnonymous(true);
         }
       } catch (error) {
-        console.error('Failed to load auth token', error);
+        console.error('Failed to load auth state, logging out.', error);
+        await logout();
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadToken();
+    loadStateFromStorage();
   }, []);
 
-
-
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (cfisc: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      
-      const response = await fetch(`${API_URL}/auth/login`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cfisc, passwd: password }),
       });
-      
-      const data = await response.json();
-      
+
       if (!response.ok) {
-        throw new Error(data.detail || 'Errore durante il login');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Login failed');
       }
-      
-      // Save token if succesful and then fetch user data
+
+      const data = await response.json();
       const accessToken = data.access_token;
-      await SecureStore.setItemAsync('auth_token', accessToken);
+
+      await storage.setItem(AUTH_TOKEN_KEY, accessToken);
+      await storage.deleteItem(ANON_TOKEN_KEY);
+
       setToken(accessToken);
-      
       const userData = await fetchUserData(accessToken);
       setUser(userData);
-      
+      setIsAnonymous(false);
       return true;
+
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -85,29 +136,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginAnon = async (): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_URL}/api/auth/login-anon`);
+
+      if (!response.ok) {
+        throw new Error('Failed to get anonymous token');
+      }
+
+      const data = await response.json();
+      const anonToken = data.access_token;
+
+      await storage.setItem(ANON_TOKEN_KEY, anonToken);
+      await storage.deleteItem(AUTH_TOKEN_KEY);
+
+      setToken(anonToken);
+      setUser(null);
+      setIsAnonymous(true);
+      return true;
+    } catch (error) {
+      console.error('Anonymous login error:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     try {
-      await SecureStore.deleteItemAsync('auth_token');
+      await storage.deleteItem(AUTH_TOKEN_KEY);
+      await storage.deleteItem(ANON_TOKEN_KEY);
       setToken(null);
       setUser(null);
-      router.replace('/login');
+      setIsAnonymous(false);
+      if (router.canGoBack()) {
+        router.replace('/(auth)/login');
+      }
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
 
-  const fetchUserData = async (token: string): Promise<User> => {
-    const response = await fetch(`${API_URL}/users/me`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+  const fetchUserData = async (authToken: string): Promise<User> => {
+    const response = await fetch(`${API_URL}/api/user/me`, {
+      headers: { 'Authorization': `Bearer ${authToken}` },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch user data');
     }
-    
-    return await response.json();
+
+    const data = await response.json();
+    return { id: data.cfisc, cfisc: data.cfisc, name: data.nome };
   };
 
   const value = {
@@ -116,7 +197,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isLoading,
     login,
     logout,
-    isAuthenticated: !!token
+    loginAnon,
+    isAuthenticated: !!token,
+    isAnonymous,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
