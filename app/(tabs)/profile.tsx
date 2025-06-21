@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 
 import { ThemedText } from '@/components/ThemedText';
@@ -17,30 +17,22 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { downloadPdfByType, PdfType } from '@/utils/api';
 
 export default function ProfileScreen() {
-  const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated, logout, isLoading: authLoading, isAnonymous } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const [isDownloading, setIsDownloading] = useState<PdfType | null>(null);
 
-  // Reindirizza al login se l'utente non è autenticato
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [isAuthenticated, authLoading]);
-
-  // Gestisce il download di un PDF
   const handleDownloadPdf = async (type: PdfType) => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !user) {
       Alert.alert('Accesso richiesto', 'Per favore, effettua il login per scaricare i documenti.');
       router.replace('/login');
       return;
     }
-    
+
     setIsDownloading(type);
-    
+
     try {
-      const success = await downloadPdfByType(type);
-      
+      const success = await downloadPdfByType(type, user.id);
+
       if (!success) {
         Alert.alert('Errore', 'Si è verificato un errore durante il download del documento.');
       }
@@ -52,179 +44,195 @@ export default function ProfileScreen() {
     }
   };
 
-  // Gestisce il logout
   const handleLogout = () => {
     Alert.alert(
-      'Conferma logout',
-      'Sei sicuro di voler effettuare il logout?',
-      [
-        {
-          text: 'Annulla',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          onPress: logout,
-        },
-      ],
-      { cancelable: true }
+        'Conferma logout',
+        'Sei sicuro di voler effettuare il logout?',
+        [
+          {
+            text: 'Annulla',
+            style: 'cancel',
+          },
+          {
+            text: 'Logout',
+            onPress: logout,
+          },
+        ],
+        { cancelable: true }
     );
   };
 
   if (authLoading) {
     return (
-      <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-      </ThemedView>
+        <ThemedView style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+        </ThemedView>
     );
   }
 
-  if (!isAuthenticated) {
-    return null; // Sarà reindirizzato al login dalla useEffect
+  if (isAnonymous || !isAuthenticated) {
+    return (
+        <ThemedView style={styles.container}>
+          <ThemedText type="title" style={{ textAlign: 'center', marginBottom: 20 }}>Profilo</ThemedText>
+          <ThemedText style={{ textAlign: 'center', marginBottom: 20 }}>
+            Accedi per visualizzare il tuo profilo e scaricare i documenti.
+          </ThemedText>
+          <TouchableOpacity
+              style={[styles.loginButton, { backgroundColor: Colors[colorScheme].tint }]}
+              onPress={() => router.push('/login')}
+          >
+            <ThemedText style={styles.loginButtonText}>Accedi</ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+    )
+  }
+
+  if (!user) {
+    return null;
   }
 
   return (
-    <ScrollView style={styles.scrollView}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.profileHeader}>
-          <ThemedView style={[styles.avatar, { backgroundColor: Colors[colorScheme].tint }]}>
-            <ThemedText style={styles.avatarText}>
-              {user?.name?.charAt(0) || user?.cfisc?.charAt(0) || 'U'}
+      <ScrollView style={styles.scrollView}>
+        <ThemedView style={styles.container}>
+          <ThemedView style={styles.profileHeader}>
+            <ThemedView style={[styles.avatar, { backgroundColor: Colors[colorScheme].tint }]}>
+              <ThemedText style={styles.avatarText}>
+                {user?.name?.charAt(0) || user?.cfisc?.charAt(0) || 'U'}
+              </ThemedText>
+            </ThemedView>
+
+            <ThemedText type="title" style={styles.userName}>
+              {user?.name || 'Utente'}
+            </ThemedText>
+
+            <ThemedText style={styles.userEmail}>
+              {user?.cfisc}
             </ThemedText>
           </ThemedView>
-          
-          <ThemedText type="title" style={styles.userName}>
-            {user?.name || 'Utente'}
-          </ThemedText>
-          
-          <ThemedText style={styles.userEmail}>
-            {user?.cfisc}
-          </ThemedText>
-        </ThemedView>
 
-        <ThemedView style={styles.documentsSection}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            I Tuoi Documenti
-          </ThemedText>
-          <ThemedText style={styles.sectionDescription}>
-            Scarica i documenti disponibili per il tuo account
-          </ThemedText>
+          <ThemedView style={styles.documentsSection}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              I Tuoi Documenti
+            </ThemedText>
+            <ThemedText style={styles.sectionDescription}>
+              Scarica i documenti disponibili per il tuo account
+            </ThemedText>
 
-          <ThemedView style={styles.documentsContainer}>
-            <TouchableOpacity
-              style={[
-                styles.documentCard, 
-                { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
-              ]}
-              onPress={() => handleDownloadPdf(PdfType.DOCUMENTO_1)}
-              disabled={isDownloading !== null}
-            >
-              <ThemedView style={styles.documentIconContainer}>
-                <IconSymbol
-                  name="doc.fill"
-                  size={32}
-                  color={Colors[colorScheme].tint}
-                />
-              </ThemedView>
-              <ThemedView style={styles.documentInfo}>
-                <ThemedText type="defaultSemiBold" style={styles.documentTitle}>
-                  Documento 1
-                </ThemedText>
-                <ThemedText style={styles.documentDescription}>
-                  Clicca per scaricare il PDF
-                </ThemedText>
-              </ThemedView>
-              {isDownloading === PdfType.DOCUMENTO_1 ? (
-                <ActivityIndicator color={Colors[colorScheme].tint} />
-              ) : (
-                <IconSymbol
-                  name="arrow.down.circle.fill"
-                  size={24}
-                  color={Colors[colorScheme].tint}
-                />
-              )}
-            </TouchableOpacity>
+            <ThemedView style={styles.documentsContainer}>
+              <TouchableOpacity
+                  style={[
+                    styles.documentCard,
+                    { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
+                  ]}
+                  onPress={() => handleDownloadPdf(PdfType.LLOYDS)}
+                  disabled={isDownloading !== null}
+              >
+                <ThemedView style={styles.documentIconContainer}>
+                  <IconSymbol
+                      name="doc.fill"
+                      size={32}
+                      color={Colors[colorScheme].tint}
+                  />
+                </ThemedView>
+                <ThemedView style={styles.documentInfo}>
+                  <ThemedText type="defaultSemiBold" style={styles.documentTitle}>
+                    Lloyd's 2024
+                  </ThemedText>
+                  <ThemedText style={styles.documentDescription}>
+                    Clicca per scaricare il PDF
+                  </ThemedText>
+                </ThemedView>
+                {isDownloading === PdfType.LLOYDS ? (
+                    <ActivityIndicator color={Colors[colorScheme].tint} />
+                ) : (
+                    <IconSymbol
+                        name="arrow.down.circle.fill"
+                        size={24}
+                        color={Colors[colorScheme].tint}
+                    />
+                )}
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.documentCard, 
-                { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
-              ]}
-              onPress={() => handleDownloadPdf(PdfType.DOCUMENTO_2)}
-              disabled={isDownloading !== null}
-            >
-              <ThemedView style={styles.documentIconContainer}>
-                <IconSymbol
-                  name="doc.fill"
-                  size={32}
-                  color={Colors[colorScheme].tint}
-                />
-              </ThemedView>
-              <ThemedView style={styles.documentInfo}>
-                <ThemedText type="defaultSemiBold" style={styles.documentTitle}>
-                  Documento 2
-                </ThemedText>
-                <ThemedText style={styles.documentDescription}>
-                  Clicca per scaricare il PDF
-                </ThemedText>
-              </ThemedView>
-              {isDownloading === PdfType.DOCUMENTO_2 ? (
-                <ActivityIndicator color={Colors[colorScheme].tint} />
-              ) : (
-                <IconSymbol
-                  name="arrow.down.circle.fill"
-                  size={24}
-                  color={Colors[colorScheme].tint}
-                />
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                  style={[
+                    styles.documentCard,
+                    { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
+                  ]}
+                  onPress={() => handleDownloadPdf(PdfType.CERTIFICATE)}
+                  disabled={isDownloading !== null}
+              >
+                <ThemedView style={styles.documentIconContainer}>
+                  <IconSymbol
+                      name="doc.fill"
+                      size={32}
+                      color={Colors[colorScheme].tint}
+                  />
+                </ThemedView>
+                <ThemedView style={styles.documentInfo}>
+                  <ThemedText type="defaultSemiBold" style={styles.documentTitle}>
+                    Certificato
+                  </ThemedText>
+                  <ThemedText style={styles.documentDescription}>
+                    Clicca per scaricare il PDF
+                  </ThemedText>
+                </ThemedView>
+                {isDownloading === PdfType.CERTIFICATE ? (
+                    <ActivityIndicator color={Colors[colorScheme].tint} />
+                ) : (
+                    <IconSymbol
+                        name="arrow.down.circle.fill"
+                        size={24}
+                        color={Colors[colorScheme].tint}
+                    />
+                )}
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.documentCard, 
-                { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
-              ]}
-              onPress={() => handleDownloadPdf(PdfType.DOCUMENTO_3)}
-              disabled={isDownloading !== null}
-            >
-              <ThemedView style={styles.documentIconContainer}>
-                <IconSymbol
-                  name="doc.fill"
-                  size={32}
-                  color={Colors[colorScheme].tint}
-                />
-              </ThemedView>
-              <ThemedView style={styles.documentInfo}>
-                <ThemedText type="defaultSemiBold" style={styles.documentTitle}>
-                  Documento 3
-                </ThemedText>
-                <ThemedText style={styles.documentDescription}>
-                  Clicca per scaricare il PDF
-                </ThemedText>
-              </ThemedView>
-              {isDownloading === PdfType.DOCUMENTO_3 ? (
-                <ActivityIndicator color={Colors[colorScheme].tint} />
-              ) : (
-                <IconSymbol
-                  name="arrow.down.circle.fill"
-                  size={24}
-                  color={Colors[colorScheme].tint}
-                />
-              )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                  style={[
+                    styles.documentCard,
+                    { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
+                  ]}
+                  onPress={() => handleDownloadPdf(PdfType.CARD)}
+                  disabled={isDownloading !== null}
+              >
+                <ThemedView style={styles.documentIconContainer}>
+                  <IconSymbol
+                      name="doc.fill"
+                      size={32}
+                      color={Colors[colorScheme].tint}
+                  />
+                </ThemedView>
+                <ThemedView style={styles.documentInfo}>
+                  <ThemedText type="defaultSemiBold" style={styles.documentTitle}>
+                    Card
+                  </ThemedText>
+                  <ThemedText style={styles.documentDescription}>
+                    Clicca per scaricare il PDF
+                  </ThemedText>
+                </ThemedView>
+                {isDownloading === PdfType.CARD ? (
+                    <ActivityIndicator color={Colors[colorScheme].tint} />
+                ) : (
+                    <IconSymbol
+                        name="arrow.down.circle.fill"
+                        size={24}
+                        color={Colors[colorScheme].tint}
+                    />
+                )}
+              </TouchableOpacity>
+            </ThemedView>
           </ThemedView>
-        </ThemedView>
 
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <ThemedText style={styles.logoutButtonText}>
-            Logout
-          </ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
-    </ScrollView>
+          <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}
+          >
+            <ThemedText style={styles.logoutButtonText}>
+              Logout
+            </ThemedText>
+          </TouchableOpacity>
+        </ThemedView>
+      </ScrollView>
   );
 }
 
@@ -309,6 +317,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   logoutButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  loginButton: {
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  loginButtonText: {
     color: 'white',
     fontWeight: '600',
     fontSize: 16,

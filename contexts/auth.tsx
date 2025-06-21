@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
@@ -71,25 +71,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
+
 
   useEffect(() => {
     const loadStateFromStorage = async () => {
       try {
-        // We now use our cross-platform storage helper
         const savedAuthToken = await storage.getItem(AUTH_TOKEN_KEY);
+        const savedAnonToken = await storage.getItem(ANON_TOKEN_KEY);
+
         if (savedAuthToken) {
           const userData = await fetchUserData(savedAuthToken);
           setToken(savedAuthToken);
           setUser(userData);
           setIsAnonymous(false);
-          return;
-        }
-
-        const savedAnonToken = await storage.getItem(ANON_TOKEN_KEY);
-        if (savedAnonToken) {
+          setIsFirstLaunch(false);
+        } else if (savedAnonToken) {
           setToken(savedAnonToken);
           setUser(null);
           setIsAnonymous(true);
+          setIsFirstLaunch(false);
+        } else {
+          setIsFirstLaunch(true);
         }
       } catch (error) {
         console.error('Failed to load auth state, logging out.', error);
@@ -170,9 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null);
       setUser(null);
       setIsAnonymous(false);
-      if (router.canGoBack()) {
-        router.replace('/(auth)/login');
-      }
+      router.replace('/(auth)/login');
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -200,6 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loginAnon,
     isAuthenticated: !!token,
     isAnonymous,
+    isFirstLaunch: isFirstLaunch === true,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
