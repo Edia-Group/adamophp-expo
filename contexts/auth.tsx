@@ -65,6 +65,14 @@ const storage = {
   },
 };
 
+export const getToken = async (): Promise<string | null> => {
+  const token = await storage.getItem(AUTH_TOKEN_KEY);
+  if (token) {
+    return token;
+  }
+  return await storage.getItem(ANON_TOKEN_KEY);
+};
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -157,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(anonToken);
       setUser(null);
       setIsAnonymous(true);
+      router.replace('/');
       return true;
     } catch (error) {
       console.error('Anonymous login error:', error);

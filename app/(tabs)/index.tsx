@@ -11,22 +11,22 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, isAnonymous, user } = useAuth();
 
   return (
     <ScrollView style={styles.scrollView}>
       <ThemedView style={styles.container}>
         <ThemedText type="title" style={styles.title}>
-          Benvenuto da ADAMO
+          Benvenuto
         </ThemedText>
         
-        {isAuthenticated ? (
+        {isAuthenticated && !isAnonymous? (
           <ThemedText style={styles.subtitle}>
-            Ciao, {user?.name || user?.email}!
+            Ciao, {user?.name}!
           </ThemedText>
         ) : (
           <ThemedText style={styles.subtitle}>
-            Accedi per scoprire tutte le funzionalità
+            Accedi per utilizzare tutte le funzionalità
           </ThemedText>
         )}
 

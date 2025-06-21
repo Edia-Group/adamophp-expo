@@ -11,42 +11,37 @@ import { ActivityIndicator, StatusBar } from 'react-native';
 import 'react-native-reanimated';
 
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav() {
   // @ts-ignore
-  const { isLoading, isAuthenticated, isFirstLaunch } = useAuth();
+  const { isLoading, isAuthenticated, isFirstLaunch, isAnonymous } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const colorScheme = useColorScheme(); // Hook is now at the top level
+  const colorScheme = useColorScheme();
 
   useEffect(() => {
-    // Wait until loading is complete before doing anything.
     if (isLoading) {
       return;
     }
-
     SplashScreen.hideAsync();
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    // If it's the first time the user opens the app, force them to the login screen.
     if (isFirstLaunch && !inAuthGroup) {
       router.replace('/login');
       return;
     }
 
-    // If the user is not authenticated and not in the auth flow, send them to login.
-    if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/login');
-    }
-    // If the user is authenticated and somehow lands in the auth flow, send them to the main app.
-    else if (isAuthenticated && inAuthGroup) {
+    // If the user is fully authenticated and tries to access an auth screen, redirect them away.
+    if (isAuthenticated && !isAnonymous && inAuthGroup) {
       router.replace('/');
     }
-
-  }, [isLoading, isAuthenticated, isFirstLaunch, segments]);
+    // If the user is not authenticated at all and is trying to access a protected screen, redirect to login.
+    else if (!isAuthenticated && !inAuthGroup) {
+      router.replace('/login');
+    }
+  }, [isLoading, isAuthenticated, isFirstLaunch, isAnonymous, segments]);
 
   // While loading, show a spinner.
   if (isLoading) {

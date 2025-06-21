@@ -1,25 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
-import { useAuth } from '@/contexts/auth'; // Assuming auth.tsx is in @/contexts/
+import { useAuth } from '@/contexts/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function LoginScreen() {
   const [codiceFiscale, setCodiceFiscale] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, loginAnon, isAuthenticated } = useAuth(); // Get loginAnon from context
+  const { login, loginAnon } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.replace('/');
-    }
-  }, [isAuthenticated]);
 
   const handleLogin = async () => {
     if (!codiceFiscale || !password) {
@@ -29,7 +23,6 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      // Pass 'codiceFiscale' to the login function
       const success = await login(codiceFiscale, password);
       if (success) {
         router.replace('/');
@@ -46,7 +39,7 @@ export default function LoginScreen() {
 
   const navigateToPublicAreas = async () => {
     setIsLoading(true);
-    const success = await loginAnon(); // Call the function from the context
+    const success = await loginAnon();
     if (success) {
       router.replace('/');
     } else {
@@ -67,7 +60,6 @@ export default function LoginScreen() {
           </ThemedView>
 
           <ThemedView style={styles.formContainer}>
-            {/* Input for Codice Fiscale */}
             <TextInput
                 style={[ styles.input, { /* styles */ } ]}
                 placeholder="Codice Fiscale"
@@ -77,7 +69,6 @@ export default function LoginScreen() {
                 autoCapitalize="characters"
                 keyboardType="default"
             />
-
             <TextInput
                 style={[ styles.input, { /* styles */ } ]}
                 placeholder="Password"
@@ -86,9 +77,8 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry
             />
-
             <TouchableOpacity
-                style={[ styles.loginButton, { /* styles */ } ]}
+                style={[ styles.loginButton, { backgroundColor: Colors[colorScheme].tint } ]}
                 onPress={handleLogin}
                 disabled={isLoading}
             >
@@ -96,7 +86,6 @@ export default function LoginScreen() {
                 {isLoading ? 'Accesso in corso...' : 'Accedi'}
               </ThemedText>
             </TouchableOpacity>
-
             <TouchableOpacity
                 style={styles.skipButton}
                 onPress={navigateToPublicAreas}
@@ -145,9 +134,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 16,
+    color: 'white',
     fontWeight: '600',
+    fontSize: 16,
   },
   skipButton: {
     marginTop: 20,

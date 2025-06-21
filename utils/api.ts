@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 import { getToken } from '@/contexts/auth';
 
 const API_URL = 'http://' + process.env.EXPO_PUBLIC_BACKEND_URL;
@@ -54,7 +55,7 @@ export enum PdfType {
   CARD = 'card',
 }
 
-export const downloadPdfByType = async (type: PdfType, memberId: string): Promise<boolean> => {
+export const downloadPdfByType = async (type: PdfType): Promise<boolean> => {
   try {
     const token = await getToken();
 
@@ -63,39 +64,51 @@ export const downloadPdfByType = async (type: PdfType, memberId: string): Promis
     }
 
     const pdfMap = {
-      [PdfType.LLOYDS]: { path: `/api/pdf/print-lloyds-2024/${memberId}`, filename: 'Lloyds_2024.pdf' },
-      [PdfType.CERTIFICATE]: { path: `/api/pdf/print-certificate/${memberId}`, filename: 'Certificato.pdf' },
-      [PdfType.CARD]: { path: `/api/pdf/print-card/${memberId}`, filename: 'Card.pdf' },
+      [PdfType.LLOYDS]: { path: `/api/pdf/print-lloyds-2024`, filename: 'Lloyds_2024.pdf' },
+      [PdfType.CERTIFICATE]: { path: `/api/pdf/print-certificate`, filename: 'Certificato.pdf' },
+      [PdfType.CARD]: { path: `/api/pdf/print-card`, filename: 'Card.pdf' },
     };
 
     const pdfInfo = pdfMap[type];
 
-    const downloadPath = `${FileSystem.cacheDirectory}${pdfInfo.filename}`;
-
-    const downloadResumable = FileSystem.createDownloadResumable(
-        `${API_URL}${pdfInfo.path}`,
-        downloadPath,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-    );
-
-    // @ts-ignore
-    const { uri } = await downloadResumable.downloadAsync();
-
-    if (!uri) {
-      throw new Error('Download fallito');
-    }
-
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri, {
-        UTI: '.pdf',
-        mimeType: 'application/pdf',
-      });
+    if (Platform.OS === 'web') {
+      const response = await fetchWithAuth(pdfInfo.path);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = pdfInfo.filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } else {
-      alert("La condivisione non è disponibile su questo dispositivo.");
+      const downloadPath = `${FileSystem.cacheDirectory}${pdfInfo.filename}`;
+      const downloadResumable = FileSystem.createDownloadResumable(
+          `${API_URL}${pdfInfo.path}`,
+          downloadPath,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+      );
+
+      // @ts-ignore
+      const { uri } = await downloadResumable.downloadAsync();
+
+      if (!uri) {
+        throw new Error('Download fallito');
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          UTI: '.pdf',
+          mimeType: 'application/pdf',
+        });
+      } else {
+        alert("La condivisione non è disponibile su questo dispositivo.");
+      }
     }
 
     return true;

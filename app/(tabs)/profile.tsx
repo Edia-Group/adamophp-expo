@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -31,7 +32,7 @@ export default function ProfileScreen() {
     setIsDownloading(type);
 
     try {
-      const success = await downloadPdfByType(type, user.id);
+      const success = await downloadPdfByType(type);
 
       if (!success) {
         Alert.alert('Errore', 'Si è verificato un errore durante il download del documento.');
@@ -45,21 +46,29 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-        'Conferma logout',
-        'Sei sicuro di voler effettuare il logout?',
-        [
-          {
-            text: 'Annulla',
-            style: 'cancel',
-          },
-          {
-            text: 'Logout',
-            onPress: logout,
-          },
-        ],
-        { cancelable: true }
-    );
+    const confirmationMessage = 'Sei sicuro di voler effettuare il logout?';
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(confirmationMessage)) {
+        logout();
+      }
+    } else {
+      Alert.alert(
+          'Conferma logout',
+          confirmationMessage,
+          [
+            {
+              text: 'Annulla',
+              style: 'cancel',
+            },
+            {
+              text: 'Logout',
+              onPress: logout,
+            },
+          ],
+          { cancelable: true }
+      );
+    }
   };
 
   if (authLoading) {

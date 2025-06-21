@@ -16,6 +16,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/contexts/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { fetchWithAuth } from '@/utils/api';
 
 interface Message {
   id: string;
@@ -36,78 +37,108 @@ export default function ChatScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const colorScheme = useColorScheme() ?? 'light';
-  const { isAuthenticated, user } = useAuth();
+  const { user, token } = useAuth();
 
   useEffect(() => {
-    // The websocket connects when the component mounts and disconnects when it unmounts.
+    const initializeChat = async () => {
+      if (!token) {
+        return;
+      }
+      setIsLoading(true);
 
-    const userId = user?.id || `anon_${Date.now()}`;
-    const userName = user?.name || 'Anonymous User';
+      try {
+        const historyResponse = await fetchWithAuth('/api/messages');
+        const historyData = await historyResponse.json();
 
-    const wsUrl = `ws://${WS_BACKEND_URL}/ws/user/${encodeURIComponent(userId)}?user_name=${encodeURIComponent(userName)}`;
+        const formattedHistory: Message[] = historyData.map((msg: any) => ({
+          id: msg.id,
+          text: msg.message,
+          isUser: msg.sender_type === 'user',
+          timestamp: new Date(msg.timestamp),
+        }));
 
-    const socket = new WebSocket(wsUrl);
-    socketRef.current = socket;
-    setIsLoading(true);
-
-    socket.onopen = () => {
-      console.log('WebSocket connected');
-      setIsConnected(true);
-      setIsLoading(false);
-    };
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-
-      if (data.type === 'connection') { // This arrives as a confirmation of succesful first connection
-        setChatId(data.chat_id);
-        const systemMessage: Message = {
-          id: Date.now().toString(),
-          text: 'Connected to chat. An admin will be with you shortly.',
-          isUser: false,
-          timestamp: new Date(data.timestamp),
-        };
-        setMessages((prevMessages) => [...prevMessages, systemMessage]);
-
-      } else if (data.type === 'message') {
-        if (data.sender_type === 'admin') {
-          const assistantMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            text: data.message,
-            isUser: false,
-            timestamp: new Date(data.timestamp),
-          };
-          setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+        if (formattedHistory.length === 0) {
+          setMessages([
+            {
+              id: Date.now().toString(),
+              text: "Benvenuto nella chat di assistenza. Scrivi quì la tua richiesta e un operatore risponderà appena possibile. Grazie",
+              isUser: false,
+              timestamp: new Date(),
+            },
+          ]);
+        } else {
+          setMessages(formattedHistory);
         }
+
+        // Now, connect to WebSocket
+        const wsUrl = `ws://${WS_BACKEND_URL}/ws/${encodeURIComponent(token)}`;
+        const socket = new WebSocket(wsUrl);
+        socketRef.current = socket;
+
+        socket.onopen = () => {
+          console.log('WebSocket connected');
+          setIsConnected(true);
+          setIsLoading(false);
+        };
+
+        socket.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+
+          if (data.type === 'connection') {
+            setChatId(data.chat_id);
+          } else if (data.type === 'message') {
+            if (data.sender_type === 'admin') {
+              const assistantMessage: Message = {
+                id: (Date.now() + 1).toString(),
+                text: data.message,
+                isUser: false,
+                timestamp: new Date(data.timestamp),
+              };
+              setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+            }
+          }
+        };
+
+        socket.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          setIsLoading(false);
+          setIsConnected(false);
+          const errorMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            text: 'Could not connect to the chat service. Please try again later.',
+            isUser: false,
+            timestamp: new Date(),
+          };
+          setMessages((prevMessages) => [...prevMessages, errorMessage]);
+        };
+
+        socket.onclose = () => {
+          console.log('WebSocket disconnected');
+          setIsConnected(false);
+          setIsLoading(false);
+          socketRef.current = null;
+        };
+      } catch (error) {
+        console.error('Failed to initialize chat:', error);
+        setIsLoading(false);
+        const errorMessage: Message = {
+          id: Date.now().toString(),
+          text: 'Failed to load chat history. Please try again later.',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages([errorMessage]);
       }
     };
 
-    socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setIsLoading(false);
-      setIsConnected(false);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Could not connect to the chat service. Please try again later.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages((prevMessages) => [...prevMessages, errorMessage]);
-    };
-
-    socket.onclose = () => {
-      console.log('WebSocket disconnected');
-      setIsConnected(false);
-      setIsLoading(false);
-      socketRef.current = null;
-    };
+    initializeChat();
 
     return () => {
       if (socketRef.current) {
         socketRef.current.close();
       }
     };
-  }, [user]);
+  }, [user, token]);
 
   const handleSendMessage = () => {
     if (!message.trim() || !socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
@@ -121,12 +152,9 @@ export default function ChatScreen() {
       timestamp: new Date(),
     };
 
-    // Add user's message to the UI immediately for a responsive feel.
     setMessages((prevMessages) => [...prevMessages, userMessage]);
-
     socketRef.current.send(JSON.stringify({ message: message }));
     console.log("Sent message: " + message.toString() + " to server: " + WS_BACKEND_URL)
-
 
     setMessage('');
   };
@@ -228,7 +256,6 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  // ... your existing styles remain unchanged
   container: {
     flex: 1,
   },

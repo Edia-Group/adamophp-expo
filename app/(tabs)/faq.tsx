@@ -6,7 +6,6 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { getFaqs } from '@/utils/api';
 
 interface Faq {
   id: string;
@@ -15,33 +14,9 @@ interface Faq {
 }
 
 export default function FaqScreen() {
-  const [faqs, setFaqs] = useState<Faq[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const colorScheme = useColorScheme() ?? 'light';
 
-  useEffect(() => {
-    const loadFaqs = async () => {
-      try {
-        setLoading(true);
-        const data = await getFaqs();
-        setFaqs(data);
-        setError(null);
-      } catch (err) {
-        console.error('Error loading FAQs:', err);
-        setError('Impossibile caricare le FAQ. Riprova più tardi.');
-        // Carica le FAQ di esempio in caso di errore
-        setFaqs(exampleFaqs);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadFaqs();
-  }, []);
-
-  // Mockd ata
-  const exampleFaqs: Faq[] = [
+  const faqs: Faq[] = [
     {
       id: '1',
       question: 'Come posso accedere al mio account?',
@@ -69,14 +44,6 @@ export default function FaqScreen() {
     },
   ];
 
-  if (loading) {
-    return (
-      <ThemedView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-      </ThemedView>
-    );
-  }
-
   return (
     <ScrollView style={styles.scrollView}>
       <ThemedView style={styles.container}>
@@ -84,19 +51,13 @@ export default function FaqScreen() {
           Domande Frequenti
         </ThemedText>
 
-        {error && !faqs.length ? (
-          <ThemedView style={styles.errorContainer}>
-            <ThemedText style={styles.errorText}>{error}</ThemedText>
-          </ThemedView>
-        ) : (
-          <ThemedView style={styles.faqContainer}>
-            {faqs.map((faq) => (
-              <Collapsible key={faq.id} title={faq.question}>
-                <ThemedText style={styles.faqAnswer}>{faq.answer}</ThemedText>
-              </Collapsible>
-            ))}
-          </ThemedView>
-        )}
+        <ThemedView style={styles.faqContainer}>
+          {faqs.map((faq) => (
+            <Collapsible key={faq.id} title={faq.question}>
+              <ThemedText style={styles.faqAnswer}>{faq.answer}</ThemedText>
+            </Collapsible>
+          ))}
+        </ThemedView>
       </ThemedView>
     </ScrollView>
   );
