@@ -3,7 +3,7 @@ import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { getToken } from '@/contexts/auth';
 
-const API_URL = 'http://' + process.env.EXPO_PUBLIC_BACKEND_URL;
+const API_URL = 'https://' + process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export const fetchWithAuth = async (
     endpoint: string,
@@ -65,7 +65,7 @@ export const downloadPdfByType = async (type: PdfType): Promise<boolean> => {
 
     const pdfMap = {
       [PdfType.LLOYDS]: { path: `/api/pdf/print-lloyds-2024`, filename: 'Lloyds_2024.pdf' },
-      [PdfType.CERTIFICATE]: { path: `/api/pdf/print-certificate`, filename: 'Certificato.pdf' },
+      [PdfType.CERTIFICATE]: { path: `/api/pdf/print-cert`, filename: 'Certificato.pdf' },
       [PdfType.CARD]: { path: `/api/pdf/print-card`, filename: 'Card.pdf' },
     };
 
