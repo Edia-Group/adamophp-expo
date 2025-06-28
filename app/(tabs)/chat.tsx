@@ -71,7 +71,7 @@ export default function ChatScreen() {
         }
 
         // Now, connect to WebSocket
-        const wsUrl = `ws://${WS_BACKEND_URL}/ws/${encodeURIComponent(token)}`;
+        const wsUrl = `wss://${WS_BACKEND_URL}/ws/${encodeURIComponent(token)}`;
         const socket = new WebSocket(wsUrl);
         socketRef.current = socket;
 
