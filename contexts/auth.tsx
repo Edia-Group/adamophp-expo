@@ -23,7 +23,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const backendHost = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-const API_URL = `https://${backendHost}`;
+const API_URL = `https://adamotest.carlsrl.it`;
 
 const AUTH_TOKEN_KEY = 'auth_token';
 const ANON_TOKEN_KEY = 'anon_auth_token';

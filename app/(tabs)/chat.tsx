@@ -25,7 +25,7 @@ interface Message {
   timestamp: Date;
 }
 
-const WS_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+const WS_BACKEND_URL = "adamotest.carlsrl.it";
 
 export default function ChatScreen() {
   const [message, setMessage] = useState('');
@@ -71,7 +71,7 @@ export default function ChatScreen() {
         }
 
         // Now, connect to WebSocket
-        const wsUrl = `wss://${WS_BACKEND_URL}/ws/${encodeURIComponent(token)}`;
+        const wsUrl = `wss://adamotest.carlsrl.it/ws/${encodeURIComponent(token)}`;
         const socket = new WebSocket(wsUrl);
         socketRef.current = socket;
 

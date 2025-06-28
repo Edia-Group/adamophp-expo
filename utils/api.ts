@@ -3,7 +3,7 @@ import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';
 import { getToken } from '@/contexts/auth';
 
-const API_URL = 'https://' + process.env.EXPO_PUBLIC_BACKEND_URL;
+const API_URL = 'https://adamotest.carlsrl.it';
 
 export const fetchWithAuth = async (
     endpoint: string,
