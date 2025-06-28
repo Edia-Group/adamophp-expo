@@ -63,7 +63,7 @@ export default function LoginScreen() {
             <TextInput
                 style={[ styles.input, { /* styles */ } ]}
                 placeholder="Codice Fiscale"
-                placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#888'}
+                placeholderTextColor={Colors[colorScheme].placeholder} // Updated
                 value={codiceFiscale}
                 onChangeText={setCodiceFiscale}
                 autoCapitalize="characters"
@@ -72,7 +72,7 @@ export default function LoginScreen() {
             <TextInput
                 style={[ styles.input, { /* styles */ } ]}
                 placeholder="Password"
-                placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#888'}
+                placeholderTextColor={Colors[colorScheme].placeholder} // Updated
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   buttonText: {
-    color: 'white',
+    color: Colors.dark.text,
     fontWeight: '600',
     fontSize: 16,
   },

@@ -1,8 +1,8 @@
 import { ThemedView } from '@/components/ThemedView';
-import { Colors } from '@/constants/Colors';
+import { Colors, DarkTheme, LightTheme } from '@/constants/Colors';
 import { AuthProvider, useAuth } from '@/contexts/auth';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -33,17 +33,14 @@ function RootLayoutNav() {
       return;
     }
 
-    // If the user is fully authenticated and tries to access an auth screen, redirect them away.
     if (isAuthenticated && !isAnonymous && inAuthGroup) {
       router.replace('/');
     }
-    // If the user is not authenticated at all and is trying to access a protected screen, redirect to login.
     else if (!isAuthenticated && !inAuthGroup) {
       router.replace('/login');
     }
   }, [isLoading, isAuthenticated, isFirstLaunch, isAnonymous, segments]);
 
-  // While loading, show a spinner.
   if (isLoading) {
     return (
         <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -55,8 +52,6 @@ function RootLayoutNav() {
     );
   }
 
-  // Once loaded, show the main navigation stack.
-  // @ts-ignore
   return (
       <>
         <Stack screenOptions={{ headerShown: false }}>
@@ -85,7 +80,7 @@ export default function RootLayout() {
   }
 
   return (
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : LightTheme}>
         <AuthProvider>
           <RootLayoutNav />
         </AuthProvider>

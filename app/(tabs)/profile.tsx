@@ -131,7 +131,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                   style={[
                     styles.documentCard,
-                    { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
+                    { backgroundColor: Colors[colorScheme].card }
                   ]}
                   onPress={() => handleDownloadPdf(PdfType.LLOYDS)}
                   disabled={isDownloading !== null}
@@ -165,7 +165,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                   style={[
                     styles.documentCard,
-                    { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
+                    { backgroundColor: Colors[colorScheme].card }
                   ]}
                   onPress={() => handleDownloadPdf(PdfType.CERTIFICATE)}
                   disabled={isDownloading !== null}
@@ -199,7 +199,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                   style={[
                     styles.documentCard,
-                    { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
+                    { backgroundColor: Colors[colorScheme].card }
                   ]}
                   onPress={() => handleDownloadPdf(PdfType.CARD)}
                   disabled={isDownloading !== null}
@@ -246,6 +246,11 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  avatarText: {
+    fontSize: 32,
+    color: Colors.dark.text,
+    fontWeight: 'bold',
+  },
   scrollView: {
     flex: 1,
   },
@@ -269,11 +274,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-  },
-  avatarText: {
-    fontSize: 32,
-    color: 'white',
-    fontWeight: 'bold',
   },
   userName: {
     marginBottom: 4,

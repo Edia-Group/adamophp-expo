@@ -193,7 +193,7 @@ export default function ChatScreen() {
                       msg.isUser
                           ? [styles.userMessage, { backgroundColor: Colors[colorScheme].tint }]
                           : [styles.assistantMessage, {
-                            backgroundColor: colorScheme === 'dark' ? '#333' : '#f0f0f0',
+                            backgroundColor: Colors[colorScheme].messageBackground, // Updated
                           }],
                     ]}
                 >
@@ -222,17 +222,17 @@ export default function ChatScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5',
-                    color: colorScheme === 'dark' ? '#fff' : '#000',
-                    borderColor: colorScheme === 'dark' ? '#555' : '#ddd',
+                    backgroundColor: Colors[colorScheme].inputBackground, // Updated
+                    color: Colors[colorScheme].inputText, // Updated
+                    borderColor: Colors[colorScheme].inputBorder, // Updated
                   },
                 ]}
                 placeholder="Scrivi un messaggio..."
-                placeholderTextColor={colorScheme === 'dark' ? '#aaa' : '#888'}
+                placeholderTextColor={Colors[colorScheme].placeholder} // Updated
                 value={message}
                 onChangeText={setMessage}
                 multiline
-                editable={isConnected} // Disable input if not connected
+                editable={isConnected}
             />
             <TouchableOpacity
                 style={[
@@ -246,7 +246,7 @@ export default function ChatScreen() {
               <IconSymbol
                   name="paperplane.fill"
                   size={24}
-                  color="#fff"
+                  color={Colors.dark.text} // Updated from '#fff'
               />
             </TouchableOpacity>
           </View>
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   userMessageText: {
-    color: '#fff',
+    color: Colors.light.text,
   },
   messageTime: {
     fontSize: 12,
